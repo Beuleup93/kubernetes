@@ -1,126 +1,78 @@
-#### TP 2 DEPLOYEZ VOTRE PREMIERE APPLICATION (minikube et [eazylabs](http://docker.labs.eazytraining.fr/)) :
+#### TP3: GESTION DU RESEAU (minikube et [eazylabs](http://docker.labs.eazytraining.fr/)) 
 
-- Créez un repertoire Kubernetes-training et un sous-dossier tp-2 et copiez vos manifests à l’interieur
-    mkdir -p Kubernetes-training/tp-2
-    cd Kubernetes-training/tp-2
+```bash 
+# afficher les pods avec leur label 
+kubectl get po --show-labels 
+# filter les pods pour afficher ceux donc le label app=nginx et contenu dans le l'espace de nom production
+kubectl get pods -l app=nginx --namespace=production
+```
 
-- Ecrivez un manifest pod.yml pour déployer un pod avec l’image 
-  mmumshad/simple-webapp-color  en précisant que la color souhaitée est la rouge
-    => Le manifeste vous est le suivant: [text](pod.yml)
 
-lancez votre pod  
+#####################   Creation des Manifestes   #####################
+
+```bash 
+kubectl create namespace production --dry-run=client -o yaml > namespace.yml
+```
+```bash 
+kubectl run --image=mmumshad/simple-webapp-color --env="APP_COLOR=red"   simple-webapp-color-red --labels='app=web' -n production --port=8080 --dry-run=client -o yaml > pod-red.yml
+```
+```bash 
+kubectl run --image=mmumshad/simple-webapp-color --env="APP_COLOR=blue"   simple-webapp-color-blue --labels='app=web' -n production --port=8080 --dry-run=client -o yaml > pod-blue.yml
+```
+```bash 
+kubectl create service nodeport  service-nodeport-web  --node-port=30008 --tcp=8080:8080 -n production --dry-run=client -o yaml > service-nodeport-web.yml
+```
+mettre à jour la valeur selecteur app avec ```bash web```dans service-nodeport-web.yml
+
+#####################   Lancement et verification du namespace   #####################
+
+```bash 
+kubectl apply -f namespace.yml
+```
+```bash 
+kubectl get namespace
+```
+
+#####################   Lancement et verification des pods et du service nodeport   #####################
+
 ```bash
-kubectl apply -f pod.yml
+kubectl apply -f pod-red.yml
 ```
-vérifiez qu’il est bien en cours d’exécution
 ```bash
-kubectl get po
-kubectl describe po simple-webapp-color
+kubectl get po  -n production -o wide
 ```
-exposez votre pod en utilisant la commande 
 ```bash
-kubectl port-forward <nom de votre pod> 8080:8080 –-address 0.0.0.0
-kubectl port-forward simple-webapp-color 8090:8080 --address 0.0.0.0
+kubectl apply -f pod-blue.yml
 ```
-vérifiez que l’application est bien joignagle en ouvrant votre VM sur le port 8080
-supprimez votre pod
 ```bash
-kubectl delete -f pod.yml
+kubectl get po  -n production -o wide
 ```
-vérifiez que l’application est bien supprimer en actualisant votre VM sur le port 8080 
-ou en tappant la cmde
 ```bash
-kubectl get po
+kubectl apply -f service-nodeport-web.yml
 ```
 
-Nous avons creer un objet de type pod, cependant nous allons passer à la creation d'un objet de type deploiement
-2 replicas d’un pod nginx
-  
-creer le fichier nginx-deployment.yml
-Mettre le contenu suivant 
-
-
-notre script mis en place, lacons notre objet deployment 
+Faisons un fowarding du service nodeport
 ```bash
-kubectl apply -f nginx-deployment.yml
+kubectl port-forward -n production service/service-nodeport-web 30008:8080 --address 0.0.0.0
 ```
-verifions le nombre de nos objets de type deployment
 ```bash
-kubectl get deploy
+kubectl get service  -n production -o wide
 ```
-verifions le nombre de nos objets de type replicaset
 ```bash
-kubectl get replicaset
+kubectl -n production describe svc service-nodeport-web
 ```
-verifions le nombre de nos objets de type pop
+
+#####################   Suppression des pods, service nodeport et du namespace   #####################
+
 ```bash
-kubectl get po
+kubectl delete -f pod-red.yml
 ```
-
-passons a la version latest de nginx
-pour cela on va mettre a jour la version de nginx dans le container
-ensuite tapons
 ```bash
-kubectl apply -f nginx-deployment.yml
+kubectl delete -f pod-blue.yml
 ```
-on peut constater que le deployment reconfigure notre ressource
-
-pour suivre l'evolution de la mise a jour de notre version on tape 
 ```bash
-kubectl get replicaset -o wide
+kubectl delete -f service-nodeport-web.yml
 ```
-
-pour visualiser l'évolution de notre cluster
 ```bash
-watch kubectl get all
-```
-
-pour visualiser l'historique de notre deploiement 
-```bash
-kubectl rollout history deployment/nginx-deployment
-```
-
-pour faire un rollback
-```bash
-kubectl rollout undo deployment/nginx-deployment
-```
-
-supprimez votre deployment
-```bash
-kubectl delete -f nginx-deployment.yml
-```
-
-Nous avons terminé avec l'approche déclarative, nous allons continué avec l'approche impérative pour pouvoir créé nos ressources
-
-Supprimez toutes les ressources créées et recréez les en utilisant 
-  les commandes impératives
-
-    lancement du pod :    
-       
-```bash   
-# lancement du pod : 
-kubectl run --image=mmumshad/simple-webapp-color --env="APP_COLOR=red" simple-webapp-color
-# Suppression du pod :  
-kubectl delete pod simple-webapp-color
-# Lancement du deploy:  
-kubectl create deployment --image=nginx:1.18.0 nginx-deployment
-# Scaling du replicas:  
-kubectl scale --replicas=2 deployment/nginx-deployment
-# upgrade de version :  
-kubectl set image deployment/nginx-deployment nginx=nginx
-# pour suivre l'evolution de la mise a jour de notre version on tape 
-kubectl get replicaset -o wide 
-# Suppression du deploy :  
-kubectl delete deployment/nginx-deployment
-```
-
-Enfin, poussez ce de tp sur votre github afin de conservez tous vos fichiers
-
-```bash  
-cd ..
-git init
-git add . 
-git commit -m "message de commit personnalisé"
-git remote add origin http://url_repos_git
-git push origin main
+kubectl delete -f namespace.yml
 ```
